@@ -52,7 +52,16 @@ class ExtendedKF:
         # Ex: meas_noise(self, (1,3), Q)
         self.matR = np.random.normal(0, R, size)
 
-    def jacobA(self,k):
+    def jacobA(self,T):
+    # Calculates the Jacobian A at every time step.
+    # Needs the time step T as an input
+        A = np.array([
+                        [1, T, 0, 0],
+                        [0, 1, 0, 0],
+                        [0, 0, 1, T],
+                        [0, 0, 0, 1]
+                    ])
+        return A
 
     def jacobG(self,k):
 
