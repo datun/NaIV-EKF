@@ -12,6 +12,7 @@ class ExtendedKF:
 
 
         self.matR = None
+
         self.Ti = T_in
 
         self.P_pred_list = []
@@ -19,6 +20,8 @@ class ExtendedKF:
         self.K_gain_list = []
         self.X_pred_list = []
         self.X_corr_list = []
+
+        self.z = []
 
         # matQ by Eq(10)
         self.matQ = np.ndarray([[self.Ti**3/3, self.Ti**2/2, 0, 0],
@@ -94,6 +97,14 @@ class ExtendedKF:
         # identity 5 to be changed to a matrix size stuff
         temp1 = np.linalg.inv(P_pred_k)
         self.P_corr_list.append((np.identity(5) - K_k @ self.jacobC(step)) @ temp1)
+
+    def KalmanFiltering(self):
+        for i, meas in enumerate(self.z):
+            self.t_up_x_pred(self.X_corr_list[i])
+            self.t_up_p_pred(self.P_corr_list[i], self.matQ[i], i)  # matrix Q at step k? wtf is that
+            self.m_up_k_gain(self.P_pred_list[i],i)
+            self.m_up_x_corr(self.X_pred_list[i],self.K_gain_list[i],meas)
+            self.m_up_p_corr(self.K_gain_list[i],self.P_pred_list[i],i)
 
 
 def nees(x_true,x_pred,p_list):
