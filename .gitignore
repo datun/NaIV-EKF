@@ -3,3 +3,5 @@
 venv
 Navigation_Lab3.pdf
 *.xml
+.idea/misc.xml
+.idea/NaIV-EKF.iml
