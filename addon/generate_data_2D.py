@@ -145,5 +145,6 @@ class gen_2D_data:
         f2.show()
 
 
-test = gen_2D_data(10,10,10,1e-3)
-test.plot_graphs()
+# test = gen_2D_data(10,10,10,1e-3)
+# print(test.x[0])
+# print(777)

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sympy import symbols, diff
 
-import addon.generate_data_2D as gen2D
+from addon.generate_data_2D import gen_2D_data as gen2D
 
 # Sympy also has jacobi stuff, but it may be for polynomials
 # I may remove it if we don't ever use diff stuff
@@ -118,3 +118,10 @@ def nis(x_pred,z_in,p_list,C_in,H_in,R_in):
     return z1_k.T @ np.linalg.inv(S_k) @ z1_k
 
 
+def main():
+    gen_data = gen2D(10,10,10,1e-3)  # init real values, measured values etc.
+    extKF_T = ExtendedKF(5)  # T value for initialising
+
+
+
+main()
