@@ -21,15 +21,15 @@ class ExtendedKF:
         self.X_pred_list = []
         self.X_corr_list = []
 
-        self.z = []
+        self.z = np.zeros((1,4))
 
         # matQ by Eq(10)
-        self.matQ = np.ndarray([[self.Ti**3/3, self.Ti**2/2, 0, 0],
+        self.matQ = np.array([[self.Ti**3/3, self.Ti**2/2, 0, 0],
                                 [self.Ti**2/2, self.Ti, 0, 0],
                                 [0, 0, self.Ti**3/3, self.Ti**2/2],
                                 [0, 0, self.Ti**2/2, self.Ti**3/3]])
         # matA or part of f by Eq(10)
-        self.f_KF = np.ndarray([[1, self.Ti, 0, 0],
+        self.f_KF = np.array([[1, self.Ti, 0, 0],
                                 [0, 1 ,0 ,0],
                                 [0, 0, 1, self.Ti],
                                 [0, 0, 0, 1]])
@@ -43,8 +43,16 @@ class ExtendedKF:
         r_x = np.sqrt(x_k[0]**2 + x_k[2]**2)
         theta_x = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
         r_v = np.sqrt(x_k[1]**2 + x_k[3]**2)
-        theta_v = np.arctan(x_k[1]/x_k[3])
-        return [(r_x,theta_x), (r_v,theta_v)]
+        if x_k[3] == 0:
+            theta_v = 0
+        else:
+            theta_v = np.arctan(x_k[1]/x_k[3])
+        return np.array([r_x,theta_x, r_v,theta_v]).reshape(1,4)
+
+    def gen_z(self, x_in):
+        for i in range(len(x_in)):
+            self.z = np.vstack((self.z, self.h_KF(x_in[i])))
+        self.z = np.delete(self.z, 0, 0)
 
 
     def process_noise(self, size, Q):
@@ -67,11 +75,11 @@ class ExtendedKF:
         return A
 
     def jacobG(self,k):
-
+        return
     def jacobC(self,x_k):
-
+        return
     def jacobH(self,x_k):
-
+        return
     def t_up_x_pred(self,x_corr):
         # Eq (3)
         self.X_pred_list.append(self.f_KF @ x_corr + self.matQ)
@@ -121,6 +129,8 @@ def nis(x_pred,z_in,p_list,C_in,H_in,R_in):
 def main():
     gen_data = gen2D(10,10,10,1e-3)  # init real values, measured values etc.
     extKF_T = ExtendedKF(5)  # T value for initialising
+    extKF_T.gen_z(gen_data.x)
+    print(7)
 
 
 
