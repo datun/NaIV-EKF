@@ -58,6 +58,13 @@ class ExtendedKF:
         Converting velocity values to polar as r_v and theta_v
         """
 
+        # Sid check these two out:
+        # [1] https://math.stackexchange.com/questions/2444965/relationship-between-cartesian-velocity-and-polar-velocity
+        # [2] https://robotics.stackexchange.com/questions/1992/jacobian-of-the-observation-model
+        # [1] is for changing cartesian coordinate into polar coordinates
+        # [2] is for the Jacobian of C.
+        # I've forgotten how to do these stuff so, I may not update it immediately
+
         r_x = np.sqrt(x_k[0]**2 + x_k[2]**2)
         theta_x = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
         r_v = np.sqrt(x_k[1]**2 + x_k[3]**2)
@@ -80,23 +87,41 @@ class ExtendedKF:
         print("Read commented section!")
         print("If we will have additional time after documenting, we will support comment explanation with code!")
         # This was intended for Jacobian matrix of part. der. of f w.r.t. state x.
+        # ( Eq.1 groups w(k) with x_k and u(k), fortunately explicit version is found in Eq.10;
+        #  clarifying what is meant by f(x_k,u(k),w(k)) since it can mean anything!)
         # Considering the equation x(k) = matA @ x(k-1) + █ * u(k) + █ * 0
         # derivative wrt state x yields matrix A.
         # Thus A[i,j] Jacobian is always A
+        # /// After manual computation, here is the matlab link as a help source which describes what is stated above
+        # /// https://mathworks.com/help/driving/ug/extended-kalman-filters.html
         return
 
     def jacobG(self):
         print("Read commented section!")
         print("If we will have have additional time after documenting, we will support comment explanation with code!")
         # This was intended for Jacobian matrix of part. der. of f w.r.t. process noise w(k).
+        # ( Eq.1 groups w(k) with x_k and u(k), fortunately explicit version is found in Eq.10;
+        #  clarifying what is meant by f(x_k,u(k),w(k)) since it can mean anything!)
         # Considering the equation x(k) = matA @ x(k-1) + █ * u(k) + █ * 0 (where 0 = w(k))
         # As given in the pdf, w(k) is equal to zero, which is a constant. Derivative of constant also yields 0.
         # Thus G[i,j] Jacobian is always 0.
+        # /// After manual computation, here is the matlab link as a help source which describes what is stated above
+        # /// https://mathworks.com/help/driving/ug/extended-kalman-filters.html
         return
 
-    def jacobC(self,x_k):
+    def jacobC(self):
         return
-    def jacobH(self,x_k):
+
+    def jacobH(self):
+        print("Read commented section!")
+        print("If we will have have additional time after documenting, we will support comment explanation with code!")
+        # This was intended for Jacobian matrix of part. der. of h w.r.t. measurement noise v(k).
+        # Considering the equation z(k) = h(x_k) + v(k)
+        # ( Eq.2 groups v(k) with x_k unnecessarily; causing additional confusion and there is no other reference to
+        # function h unlike function f that is shown in Eq.1 and LATER EXPLAINED in Eq.10)
+        # Obvious derivation wrt v(k) will yield 1 and 1 is identity matrix in terms of matrices.
+        # /// After manual computation, here is the matlab link as a help source which describes what is stated above
+        # /// https://mathworks.com/help/driving/ug/extended-kalman-filters.html
         return
 
     def gen_x_hat_minus(self, x_corr_k, w_k):
@@ -109,8 +134,7 @@ class ExtendedKF:
 
     def gen_k_gain(self, P_pred_k, step):
         # Eq(5)
-        temp1 = np.linalg.inv(self.jacobC(step) @ P_pred_k @ self.jacobC(step).T +
-                              self.jacobH(step) @ self.matR @ self.jacobH(step).T)
+        temp1 = np.linalg.inv(self.jacobC(step) @ P_pred_k @ self.jacobC(step).T + self.matR)
         self.K_gain_list.append(P_pred_k @ self.jacobC(step).T @ temp1)
 
     def corr_x_hat(self, X_pred_k, K_k, Z_k):
