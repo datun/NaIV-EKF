@@ -21,7 +21,7 @@ class ExtendedKF:
         self.X_pred_list = []
         self.X_corr_list = []
 
-        self.z = np.zeros((1, 4))
+        self.z = np.zeros((1, 2))
 
         # matQ by Eq(10)
         self.matQ = np.array([[self.Ti**3/3, self.Ti**2/2, 0, 0],
@@ -63,16 +63,22 @@ class ExtendedKF:
         # [2] https://robotics.stackexchange.com/questions/1992/jacobian-of-the-observation-model
         # [1] is for changing cartesian coordinate into polar coordinates
         # [2] is for the Jacobian of C.
-        # I've forgotten how to do these stuff so, I may not update it immediately
+        # I updated the polar coordinate conversion according to the [1],
+        # we also do need to check jacobian of C.
 
-        r_x = np.sqrt(x_k[0]**2 + x_k[2]**2)
-        theta_x = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
-        r_v = np.sqrt(x_k[1]**2 + x_k[3]**2)
-        if x_k[3] == 0:
-            theta_v = 0
-        else:
-            theta_v = np.arctan(x_k[1]/x_k[3])
-        return np.array([r_x,theta_x, r_v,theta_v]).reshape(1,4)
+        # r_x = np.sqrt(x_k[0]**2 + x_k[2]**2)
+        # theta_x = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
+        # r_v = np.sqrt(x_k[1]**2 + x_k[3]**2)
+        # if x_k[3] == 0:
+        #     theta_v = 0
+        # else:
+        #     theta_v = np.arctan(x_k[1]/x_k[3])
+        # return np.array([r_x,theta_x, r_v,theta_v]).reshape(1,4)
+
+        r_k = (x_k[0] * x_k[1] + x_k[2] * x_k[3]) / np.sqrt(x_k[0]**2 + x_k[2]**2)
+        theta_k = (x_k[0] * x_k[3] - x_k[1] * x_k[2]) / (x_k[0]**2 + x_k[2]**2)
+
+        return np.array([r_k, theta_k]).reshape(1, 2)
 
     def gen_z(self, x_in):
         for i in range(len(x_in)):
