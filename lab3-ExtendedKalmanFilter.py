@@ -35,11 +35,21 @@ class ExtendedKF:
                                 [0, 0, 0, 1]])
 
     def h_KF(self,x_k):
-        # around Eq (9)
-        # x(k) = [ x_pos x_vel y_pos y_vel ]
-        # Assuming h(x(k),v(k)) is converted from cartesian to polar like this
-        # Converting x position values to polar as r_x and theta_x
-        # Converting x velocity values to polar as r_v and theta_v
+
+        """
+        INPUT: X Vector in Cartesian Co-ordinates
+            x(k) = [ x_position x_velocity y_position y_velocity ]
+        OUTPUT: Position and Velocity in Polar Co-ordinates
+
+        Ref: Eq (9)
+            x(k) = [ x_pos x_vel y_pos y_vel ]
+
+        Assuming h(x(k),v(k)) is converted from cartesian to polar as follows
+        Converting position values to polar as r_x and theta_x
+        Converting velocity values to polar as r_v and theta_v
+        """
+
+
         r_x = np.sqrt(x_k[0]**2 + x_k[2]**2)
         theta_x = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
         r_v = np.sqrt(x_k[1]**2 + x_k[3]**2)
