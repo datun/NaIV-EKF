@@ -47,20 +47,22 @@ class ExtendedKF:
         z_1 = z_in[1]
 
         # Convert Polar z to cartesian
-        x = z_0[0] * np.cos(z_0[1]) , z_1[0] * np.cos(z_1[1])
-        y = rho * np.sin(phi)
+        z0_x = z_0[0] * np.cos(z_0[1])
+        z0_y = z_0[0] * np.sin(z_0[1])
+        z1_x = z_1[0] * np.cos(z_1[1])
+        z1_y = z_1[0] * np.sin(z_1[1])
 
-        x_1 = z_0[0]
-        y_1 = z_0[2]
-        v_x = z_1[0] - z_0[0] / self.Ti
-        v_y = z_1[2] - z_0[2] / self.Ti
-        return np.array([x_1, v_x, y_1, v_y]).reshape((1,4))
+        x = z0_x
+        y = z0_y
+        v_x = z1_x - z0_x / self.Ti
+        v_y = z1_y - z1_y / self.Ti
+        return np.array([x, v_x, y, v_y]).reshape((1,4))
 
     def get_P_0(self):
         P_0 = np.identity(4)
         return P_0
 
-    def h_KF(self,x_k):
+    def h_KF(self, x_k):
 
         """
         INPUT: X Vector in Cartesian Co-ordinates
@@ -94,8 +96,10 @@ class ExtendedKF:
 
         r_xy = np.sqrt(x_k[0]**2 + x_k[2]**2)
         theta_xy = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
-        r_v = (x_k[0] * x_k[1] + x_k[2] * x_k[3]) / np.sqrt(x_k[0]**2 + x_k[2]**2)
-        theta_v = (x_k[0] * x_k[3] - x_k[1] * x_k[2]) / (x_k[0]**2 + x_k[2]**2)
+
+        # r_v = (x_k[0] * x_k[1] + x_k[2] * x_k[3]) / np.sqrt(x_k[0]**2 + x_k[2]**2)
+        # theta_v = (x_k[0] * x_k[3] - x_k[1] * x_k[2]) / (x_k[0]**2 + x_k[2]**2)
+
 
         return np.array([r_xy, theta_xy, r_v, theta_v]).reshape(1, 4)
 
@@ -149,9 +153,9 @@ class ExtendedKF:
         # /// https://mathworks.com/help/driving/ug/extended-kalman-filters.html
         return
 
-    def gen_x_hat_minus(self, x_corr_k, w_k):
+    def gen_x_hat_minus(self, x_corr_k):
         # Eq (3)
-        self.x_hat_minus.append(self.matA @ x_corr_k + w_k)
+        self.x_hat_minus.append(self.matA @ x_corr_k)
 
     def gen_p_minus(self, P_corr):
         # Eq(4)
