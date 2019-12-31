@@ -121,6 +121,8 @@ class gen_2D_data:
         self.z_exact = self.z
         self.z = self.z + self.v_meas # add measurement noise
 
+        return self.z
+
     def plot_graphs(self):
         # == plots ============================
         f1 = plt.figure()
@@ -145,6 +147,17 @@ class gen_2D_data:
         f2.show()
 
 
-# test = gen_2D_data(10,10,10,1e-3)
-# print(test.x[0])
-# print(777)
+# TESTING CODE
+
+test = gen_2D_data(10,10,10,1e-3)
+
+data = test.init_variables()
+print(data)
+print()
+# print(data[0].max)
+xmax, ymax = data.max(axis=0)
+xmin, ymin = data.min(axis=0)
+
+print(xmax, ymax)
+print(xmin, ymin)
+

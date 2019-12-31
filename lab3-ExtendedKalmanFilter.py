@@ -42,14 +42,23 @@ class ExtendedKF:
         self.matH = np.identity(2)
 
 
-    def x_hat_0(self, z_in):
+    def get_x_hat_0(self, z_in):
         z_0 = z_in[0]
         z_1 = z_in[1]
+
+        # Convert Polar z to cartesian
+        x = z_0[0] * np.cos(z_0[1]) , z_1[0] * np.cos(z_1[1])
+        y = rho * np.sin(phi)
+
         x_1 = z_0[0]
         y_1 = z_0[2]
         v_x = z_1[0] - z_0[0] / self.Ti
         v_y = z_1[2] - z_0[2] / self.Ti
         return np.array([x_1, v_x, y_1, v_y]).reshape((1,4))
+
+    def get_P_0(self):
+        P_0 = np.identity(4)
+        return P_0
 
     def h_KF(self,x_k):
 
