@@ -9,30 +9,38 @@ from sympy import symbols, diff
 
 
 class ExtendedKF:
-    def __init__(self, T_in):
+    def __init__(self, T_in, sigma):
+    # Initialise piecewise contant velocity model.
 
         self.matR = None
-
         self.Ti = T_in
-
         self.P_pred_list = []
         self.P_corr_list = []
         self.K_gain_list = []
-        self.X_pred_list = []
-        self.X_corr_list = []
-
+        self.x_hat_minus = []
+        self.x_hat = []
         self.z = np.zeros((1, 4))
 
-        # matQ by Eq(10)
-        self.matQ = np.array([[self.Ti**3/3, self.Ti**2/2, 0, 0],
-                                [self.Ti**2/2, self.Ti, 0, 0],
-                                [0, 0, self.Ti**3/3, self.Ti**2/2],
-                                [0, 0, self.Ti**2/2, self.Ti**3/3]])
+        # # matQ by Eq(10)
+        # self.matQ = np.array([[self.Ti**3/3, self.Ti**2/2, 0, 0],
+        #                         [self.Ti**2/2, self.Ti, 0, 0],
+        #                         [0, 0, self.Ti**3/3, self.Ti**2/2],
+        #                         [0, 0, self.Ti**2/2, self.Ti**3/3]])
+
+        # in piecewise constant model w is a scalar process noise and Q = sigma
+        self.matQ = sigma
+
         # matA or part of f by Eq(10)
         self.matA = np.array([[1, self.Ti, 0, 0],
                                 [0, 1, 0, 0],
                                 [0, 0, 1, self.Ti],
                                 [0, 0, 0, 1]])
+        # matrix G relates the process noise w to the state x
+        self.matG = np.identity(4)
+
+    # matrix G relates the process noise w to the state x
+        self.matH = np.identity(2)
+
 
     def x_hat_0(self, z_in):
         z_0 = z_in[0]
@@ -134,7 +142,7 @@ class ExtendedKF:
 
     def gen_x_hat_minus(self, x_corr_k, w_k):
         # Eq (3)
-        self.X_pred_list.append(self.matA @ x_corr_k + w_k)
+        self.x_hat_minus.append(self.matA @ x_corr_k + w_k)
 
     def gen_p_minus(self, P_corr):
         # Eq(4)
@@ -147,7 +155,7 @@ class ExtendedKF:
 
     def corr_x_hat(self, X_pred_k, K_k, Z_k):
         # Eq(6)
-        self.X_corr_list.append(X_pred_k + K_k @ (Z_k - self.h_KF(X_pred_k)))
+        self.x_hat.append(X_pred_k + K_k @ (Z_k - self.h_KF(X_pred_k)))
 
     def corr_p(self, K_k, P_pred_k, step):
         # Eq(7)
@@ -156,12 +164,15 @@ class ExtendedKF:
         self.P_corr_list.append((np.identity(5) - K_k @ self.jacobC(step)) @ temp1)
 
     def KalmanFiltering(self):
+
+        # In piecewise constant model w is a scalar process noise variable w(k) ~ N(0, Q) with zero mean.
+        # Q in this case is the process noise variance.
         w = np.random.normal(0, self.matQ, 4)
         for i, meas in enumerate(self.z):
-            self.gen_x_hat_minus(self.X_corr_list[i], w[i])
+            self.gen_x_hat_minus(self.x_hat[i], w[i])
             self.gen_p_minus(self.P_corr_list[i])
             self.gen_k_gain(self.P_pred_list[i], i)
-            self.corr_x_hat(self.X_pred_list[i], self.K_gain_list[i], meas)
+            self.corr_x_hat(self.x_hat_minus[i], self.K_gain_list[i], meas)
             self.corr_p(self.K_gain_list[i], self.P_pred_list[i], i)
 
 
