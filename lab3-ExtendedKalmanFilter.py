@@ -148,9 +148,13 @@ class ExtendedKF:
         # given input data (aka hardcoded the Jacobian matrix). Depending on the time we have left, we may also add
         # dynamic variant where it calculates wrt to the input vector.
         # x_in => x_minus_k
-        jac_c = np.array([[x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0, x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0],
-                          [-x_in[2]/(x_in[0]**2 + x_in[2]**2), 0, x_in[0]/(x_in[0]**2 + x_in[2]**2), 0]])
-        return jac_c.reshape(2, 4)
+
+        # Below is the pre-ugly fix of array problem:
+        # jac_c = np.array([[x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0, x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0],
+        #                           [-x_in[2]/(x_in[0]**2 + x_in[2]**2), 0, x_in[0]/(x_in[0]**2 + x_in[2]**2), 0]])
+        jac_c = np.array([[float(x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0.],
+                          [float(-x_in[2]/(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[0]/(x_in[0]**2 + x_in[2]**2)), 0.]])
+        return jac_c
 
     def jacobH(self):
         print("Read commented section!")
@@ -174,13 +178,12 @@ class ExtendedKF:
 
     def gen_k_gain(self, P_pred_k, jacobC):
         # Eq(5)
-        temp2 = jacobC @ P_pred_k @ jacobC.T + self.matR
         temp1 = np.linalg.pinv(jacobC @ P_pred_k @ jacobC.T + self.matR)
         self.K_gain_list.append(P_pred_k @ jacobC.T @ temp1)
 
     def corr_x_hat(self, X_pred_k, K_k, Z_k):
         # Eq(6)
-        self.x_hat.append(X_pred_k + K_k @ (Z_k - self.h_KF(X_pred_k)))
+        self.x_hat.append(X_pred_k + K_k @ (Z_k - self.h_KF(X_pred_k)).T)
 
     def corr_p(self, K_k, P_pred_k, jacobC):
         # Eq(7)
