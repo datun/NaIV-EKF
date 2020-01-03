@@ -149,15 +149,15 @@ class gen_2D_data:
 
 # TESTING CODE
 
-test = gen_2D_data(10,10,10,1e-3)
-
-data = test.init_variables()
-print(data)
-print()
-# print(data[0].max)
-xmax, ymax = data.max(axis=0)
-xmin, ymin = data.min(axis=0)
-
-print(xmax, ymax)
-print(xmin, ymin)
+# test = gen_2D_data(10,10,10,1e-3)
+#
+# data = test.init_variables()
+# print(data)
+# print()
+# # print(data[0].max)
+# xmax, ymax = data.max(axis=0)
+# xmin, ymin = data.min(axis=0)
+#
+# print(xmax, ymax)
+# print(xmin, ymin)
 
