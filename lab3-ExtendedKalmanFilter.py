@@ -9,7 +9,7 @@ from sympy import symbols, diff
 
 
 class ExtendedKF:
-    def __init__(self, T_in, w_x, w_y):
+    def __init__(self, T_in, Q_x, Q_y, R_x, R_y):
         # Initialise piecewise constant velocity model.
 
         self.Ti = T_in
@@ -35,17 +35,17 @@ class ExtendedKF:
         # matrix G relates the process noise w to the state x
         self.matG = np.array([[self.Ti**2/2, 0],
                               [self.Ti, 0],
-                              [self.Ti**2/2, 0],
-                              [self.Ti, 0]]).reshape(4, 2)
+                              [0, self.Ti**2/2],
+                              [0, self.Ti]]).reshape(4, 2)
 
-        self.w_in = np.array([[w_x, 0],
-                              [0, w_y]]).reshape(2, 2)
+        self.matQ = np.array([[Q_x, 0],
+                              [0, Q_y]]).reshape(2, 2)
 
-        self.matR = np.array([[w_x, 0],
-                              [0, w_y]]).reshape(2, 2)
+        self.matR = np.array([[R_x, 0],
+                              [0, R_y]]).reshape(2, 2)
 
         # in piecewise constant model w is a scalar process noise and Q = sigma
-        self.matGQGT = self.matG @ self.w_in @ self.w_in.T @ self.matG.T
+        self.matGQGT = self.matG @ self.matQ @ self.matG.T
 
         # matrix G relates the process noise w to the state x
         self.matH = np.zeros((2,2))
@@ -197,38 +197,49 @@ class ExtendedKF:
         # Q in this case is the process noise variance.
         for i, meas in enumerate(self.z, start=1):
             self.gen_x_hat_minus(self.x_hat[i-1])
-            print(self.x_hat_minus)
+            # print(self.x_hat_minus)
             self.gen_p_minus(self.P_corr_list[i-1])
-            print(self.P_pred_list)
+            # print(self.P_pred_list)
             matC_k = self.hardJacobC(self.x_hat_minus[i])
             self.gen_k_gain(self.P_pred_list[i], matC_k)
-            print(self.K_gain_list)
+            # print(self.K_gain_list)
             self.corr_x_hat(self.x_hat_minus[i], self.K_gain_list[i], meas)
-            print(self.x_hat)
+            # print(self.x_hat)
             self.corr_p(self.K_gain_list[i], self.P_pred_list[i], matC_k)
-            print(self.P_corr_list)
+            # print(self.P_corr_list)
 
 
 def nees(x_true, x_pred, p_list):
     x_inter = x_true - x_pred
-    return x_inter @ np.linalg.inv(p_list) @ x_inter.T
+    return float(x_inter @ np.linalg.pinv(p_list) @ x_inter.T)
 
 
 def nis(x_pred, z_in, p_list, C_in, H_in, R_in):
     S_k = C_in @ p_list @ C_in.T + H_in @ R_in @ H_in.T
     z1_k = z_in - C_in @ x_pred.T
-    return z1_k.T @ np.linalg.inv(S_k) @ z1_k
+    return z1_k.T @ np.linalg.pinv(S_k) @ z1_k
 
 
 def main():
-    gen_data = gen2D(10, 10, 10, 1e-3)  # init real values, measured values etc.
-    extKF_T = ExtendedKF(5, gen_data.Q1, gen_data.Q2)  # T value for initialising
+    gen_data = gen2D(10, 10, 1e-3, 1e-3)  # init real values, measured values etc.
+    extKF_T = ExtendedKF(0.5, gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2)  # T value for initialising
     extKF_T.gen_z(gen_data.x)
     extKF_T.get_x_hat_0(extKF_T.z)
     extKF_T.KalmanFiltering()
 
-    nees_res = nees(gen_data.true_data, extKF_T.x_hat, extKF_T.P_pred_list)
-    print(nees_res)
+    test = np.asarray(extKF_T.x_hat[1:])
+
+    tester = []
+    for i in range(len(gen_data.true_data)):
+        tester.append(nees(gen_data.true_data[i],test[i].reshape(-1,4),extKF_T.P_pred_list[i+1]))
+
+    a = test[:, 0]
+    b = test[:, 2]
+    f1 = plt.figure()
+    plt.plot(test[:, 0], test[:, 2], label='linear')
+    plt.xlabel('x-axis [m]')
+    plt.ylabel('y-axis [m]')
+    f1.show()
 
 
 main()
