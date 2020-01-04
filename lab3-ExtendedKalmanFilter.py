@@ -9,7 +9,7 @@ from sympy import symbols, diff
 
 
 class ExtendedKF:
-    def __init__(self, T_in, Q_x, Q_y, R_x, R_y):
+    def __init__(self, T_in, z_in, Q_x, Q_y, R_x, R_y):
         # Initialise piecewise constant velocity model.
 
         self.Ti = T_in
@@ -19,7 +19,8 @@ class ExtendedKF:
         self.x_hat_minus = [np.zeros((4,1))]  # 4x1
         self.x_hat = []  # 4x1
 
-        self.z = []  # 1x2
+        self.z = z_in  # 1x2
+        self.num_observ = len(self.z)
         # # matQ by Eq(10)
         # self.matQ = np.array([[self.Ti**3/3, self.Ti**2/2, 0, 0],
         #                         [self.Ti**2/2, self.Ti, 0, 0],
@@ -44,11 +45,13 @@ class ExtendedKF:
         self.matR = np.array([[R_x, 0],
                               [0, R_y]]).reshape(2, 2)
 
+        self.matC = [np.zeros((4,2))]
+
         # in piecewise constant model w is a scalar process noise and Q = sigma
         self.matGQGT = self.matG @ self.matQ @ self.matG.T
 
         # matrix G relates the process noise w to the state x
-        self.matH = np.zeros((2,2))
+        self.matH = np.identity(2)
 
     def get_x_hat_0(self, z_in):
         z_0 = z_in[0]
@@ -85,34 +88,9 @@ class ExtendedKF:
         Converting velocity values to polar as r_v and theta_v
         """
 
-        # Sid check these two out:
-        # [1] https://math.stackexchange.com/questions/2444965/relationship-between-cartesian-velocity-and-polar-velocity
-        # [2] https://robotics.stackexchange.com/questions/1992/jacobian-of-the-observation-model
-        # [1] is for changing cartesian coordinate into polar coordinates
-        # [2] is for the Jacobian of C.
-        # I updated the polar coordinate conversion according to the [1],
-        # we also do need to check jacobian of C.
-
-        # r_x = np.sqrt(x_k[0]**2 + x_k[2]**2)
-        # theta_x = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
-        # r_v = np.sqrt(x_k[1]**2 + x_k[3]**2)
-        # if x_k[3] == 0:
-        #     theta_v = 0
-        # else:
-        #     theta_v = np.arctan(x_k[1]/x_k[3])
-        # return np.array([r_x,theta_x, r_v,theta_v]).reshape(1,4)
-
         r_xy = np.sqrt(x_k[0]**2 + x_k[2]**2)
-        theta_xy = np.arctan(x_k[0]/x_k[2]) * 180 / np.pi
-
-        # r_v = (x_k[0] * x_k[1] + x_k[2] * x_k[3]) / np.sqrt(x_k[0]**2 + x_k[2]**2)
-        # theta_v = (x_k[0] * x_k[3] - x_k[1] * x_k[2]) / (x_k[0]**2 + x_k[2]**2)
-
+        theta_xy = np.arctan(x_k[2]/x_k[0]) * 180 / np.pi
         return np.array([r_xy, theta_xy]).reshape(2, 1)
-
-    def gen_z(self, x_in):
-        for i in range(len(x_in)):
-            self.z.append(self.h_KF(x_in[i]))
 
     def meas_noise(self, size, R):
         # Ex: meas_noise(self, (1,3), Q)
@@ -154,7 +132,7 @@ class ExtendedKF:
         # jac_c = np.array([[x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0, x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0],
         #                           [-x_in[2]/(x_in[0]**2 + x_in[2]**2), 0, x_in[0]/(x_in[0]**2 + x_in[2]**2), 0]])
         jac_c = np.array([[float(x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0.],
-                          [float(-x_in[2]/(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[0]/(x_in[0]**2 + x_in[2]**2)), 0.]])
+                          [float(-x_in[2]/(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[0]/(x_in[0]**2 + x_in[2]**2)), 0.]]).reshape(4,2).T
         return jac_c
 
     def jacobH(self):
@@ -173,9 +151,9 @@ class ExtendedKF:
         # Eq (3)
         self.x_hat_minus.append(self.matA @ x_corr_k)
 
-    def gen_p_minus(self, P_corr):
+    def gen_p_minus(self, P_corr_k):
         # Eq(4)
-        self.P_pred_list.append(self.matA @ P_corr @ self.matA.T + self.matGQGT)
+        self.P_pred_list.append(self.matA @ P_corr_k @ self.matA.T + self.matGQGT)
 
     def gen_k_gain(self, P_pred_k, jacobC):
         # Eq(5)
@@ -188,8 +166,7 @@ class ExtendedKF:
 
     def corr_p(self, K_k, P_pred_k, jacobC):
         # Eq(7)
-        temp1 = np.linalg.pinv(P_pred_k)
-        self.P_corr_list.append((np.identity(4) - K_k @ jacobC) @ temp1)
+        self.P_corr_list.append((np.identity(4) - K_k @ jacobC) @ P_pred_k)
 
     def KalmanFiltering(self):
 
@@ -200,12 +177,12 @@ class ExtendedKF:
             # print(self.x_hat_minus)
             self.gen_p_minus(self.P_corr_list[i-1])
             # print(self.P_pred_list)
-            matC_k = self.hardJacobC(self.x_hat_minus[i])
-            self.gen_k_gain(self.P_pred_list[i], matC_k)
+            self.matC.append(self.hardJacobC(self.x_hat_minus[i]))
+            self.gen_k_gain(self.P_pred_list[i], self.matC[i])
             # print(self.K_gain_list)
             self.corr_x_hat(self.x_hat_minus[i], self.K_gain_list[i], meas)
             # print(self.x_hat)
-            self.corr_p(self.K_gain_list[i], self.P_pred_list[i], matC_k)
+            self.corr_p(self.K_gain_list[i], self.P_pred_list[i], self.matC[i])
             # print(self.P_corr_list)
 
 
@@ -222,19 +199,20 @@ def nis(x_pred, z_in, p_list, C_in, H_in, R_in):
 
 def main():
     gen_data = gen2D(10, 10, 1e-3, 1e-3)  # init real values, measured values etc.
-    extKF_T = ExtendedKF(0.5, gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2)  # T value for initialising
-    extKF_T.gen_z(gen_data.x)
-    extKF_T.get_x_hat_0(extKF_T.z)
+    extKF_T = ExtendedKF(0.5, gen_data.z, gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2)  # T value for initialising
+    extKF_T.get_x_hat_0(gen_data.z)
     extKF_T.KalmanFiltering()
 
     test = np.asarray(extKF_T.x_hat[1:])
 
-    tester = []
+    nees_out = []
+    nis_out = []
     for i in range(len(gen_data.true_data)):
-        tester.append(nees(gen_data.true_data[i],test[i].reshape(-1,4),extKF_T.P_pred_list[i+1]))
+        nees_out.append(nees(gen_data.true_data[i],test[i].reshape(-1,4),extKF_T.P_pred_list[i+1]))
 
-    a = test[:, 0]
-    b = test[:, 2]
+    # for i in range(len(gen_data.true_data)):
+    #     nis_out.append(nis(test[i],extKF_T.z[i],extKF_T.P_pred_list[i+1],extKF_T.matC[i+1],extKF_T.matH,extKF_T.matR))
+
     f1 = plt.figure()
     plt.plot(test[:, 0], test[:, 2], label='linear')
     plt.xlabel('x-axis [m]')
