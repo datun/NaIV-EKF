@@ -13,13 +13,13 @@ class ExtendedKF:
         # Initialise piecewise constant velocity model.
 
         self.Ti = T_in
-        self.P_pred_list = []  # 4x4
+        self.P_pred_list = [np.zeros((4,4))]  # 4x4
         self.P_corr_list = [np.identity(4)]  # 4x4
-        self.K_gain_list = []  # 4x2
-        self.x_hat_minus = []  # 4x1
-        self.x_hat = [np.array([1,1,1,1]).reshape(4,1)]  # 4x1
-        self.z = []  # 1x2
+        self.K_gain_list = [np.zeros((4,2))]  # 4x2
+        self.x_hat_minus = [np.zeros((4,1))]  # 4x1
+        self.x_hat = []  # 4x1
 
+        self.z = []  # 1x2
         # # matQ by Eq(10)
         # self.matQ = np.array([[self.Ti**3/3, self.Ti**2/2, 0, 0],
         #                         [self.Ti**2/2, self.Ti, 0, 0],
@@ -28,9 +28,10 @@ class ExtendedKF:
 
         # matA or part of f by Eq(10)
         self.matA = np.array([[1, self.Ti, 0, 0],
-                                [0, 1, 0, 0],
-                                [0, 0, 1, self.Ti],
-                                [0, 0, 0, 1]]).reshape(4, 4)
+                              [0, 1, 0, 0],
+                              [0, 0, 1, self.Ti],
+                              [0, 0, 0, 1]]).reshape(4, 4)
+
         # matrix G relates the process noise w to the state x
         self.matG = np.array([[self.Ti**2/2, 0],
                               [self.Ti, 0],
@@ -63,7 +64,7 @@ class ExtendedKF:
         y = z0_y
         v_x = z1_x - z0_x / self.Ti
         v_y = z1_y - z1_y / self.Ti
-        return np.array([x, v_x, y, v_y]).reshape((1, 4))
+        self.x_hat.append(np.array([x, v_x, y, v_y]).reshape((4, 1)))
 
     def get_P_0(self):
         P_0 = np.identity(4)
@@ -107,7 +108,7 @@ class ExtendedKF:
         # r_v = (x_k[0] * x_k[1] + x_k[2] * x_k[3]) / np.sqrt(x_k[0]**2 + x_k[2]**2)
         # theta_v = (x_k[0] * x_k[3] - x_k[1] * x_k[2]) / (x_k[0]**2 + x_k[2]**2)
 
-        return np.array([r_xy, theta_xy]).reshape(1, 2)
+        return np.array([r_xy, theta_xy]).reshape(2, 1)
 
     def gen_z(self, x_in):
         for i in range(len(x_in)):
@@ -183,11 +184,10 @@ class ExtendedKF:
 
     def corr_x_hat(self, X_pred_k, K_k, Z_k):
         # Eq(6)
-        self.x_hat.append(X_pred_k + K_k @ (Z_k - self.h_KF(X_pred_k)).T)
+        self.x_hat.append(X_pred_k + K_k @ (Z_k - self.h_KF(X_pred_k)))
 
     def corr_p(self, K_k, P_pred_k, jacobC):
         # Eq(7)
-        # identity 5 to be changed to a matrix size stuff
         temp1 = np.linalg.pinv(P_pred_k)
         self.P_corr_list.append((np.identity(4) - K_k @ jacobC) @ temp1)
 
@@ -195,13 +195,18 @@ class ExtendedKF:
 
         # In piecewise constant model w is a scalar process noise variable w(k) ~ N(0, Q) with zero mean.
         # Q in this case is the process noise variance.
-        for i, meas in enumerate(self.z):
-            self.gen_x_hat_minus(self.x_hat[i])
-            self.gen_p_minus(self.P_corr_list[i])
+        for i, meas in enumerate(self.z, start=1):
+            self.gen_x_hat_minus(self.x_hat[i-1])
+            print(self.x_hat_minus)
+            self.gen_p_minus(self.P_corr_list[i-1])
+            print(self.P_pred_list)
             matC_k = self.hardJacobC(self.x_hat_minus[i])
             self.gen_k_gain(self.P_pred_list[i], matC_k)
+            print(self.K_gain_list)
             self.corr_x_hat(self.x_hat_minus[i], self.K_gain_list[i], meas)
+            print(self.x_hat)
             self.corr_p(self.K_gain_list[i], self.P_pred_list[i], matC_k)
+            print(self.P_corr_list)
 
 
 def nees(x_true, x_pred, p_list):
@@ -219,6 +224,7 @@ def main():
     gen_data = gen2D(10, 10, 10, 1e-3)  # init real values, measured values etc.
     extKF_T = ExtendedKF(5, gen_data.Q1, gen_data.Q2)  # T value for initialising
     extKF_T.gen_z(gen_data.x)
+    extKF_T.get_x_hat_0(extKF_T.z)
     extKF_T.KalmanFiltering()
 
     nees_res = nees(gen_data.true_data, extKF_T.x_hat, extKF_T.P_pred_list)
