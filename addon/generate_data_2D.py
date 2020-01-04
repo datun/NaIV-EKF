@@ -97,7 +97,7 @@ class gen_2D_data:
 
         self.w = np.hstack((np.array([self.w_x]).T, np.array([self.w_x]).T))
         self.x = np.zeros((self.NumberOfDataPoints, 4))
-        self.x[0, :] = [200, 0, -100, 0]
+        self.x[0, :] = [500, 0, 200, 0]
         for idx in range(1, int(self.NumberOfDataPoints)):
             self.x[idx, :] = np.dot(self.A, np.array(self.x[idx-1, :])) + np.dot(self.B, self.v[idx,:]) \
                            + np.dot(self.G, self.w[idx, :] )

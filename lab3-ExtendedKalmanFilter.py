@@ -1,11 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
 from addon.generate_data_2D import gen_2D_data as gen2D
-
-from sympy import symbols, diff
-# Sympy also has jacobi stuff, but it may be for polynomials
-# I may remove it if we don't ever use diff stuff
 
 
 class ExtendedKF:
@@ -21,13 +16,7 @@ class ExtendedKF:
 
         self.z = z_in  # 1x2
         self.num_observ = len(self.z)
-        # # matQ by Eq(10)
-        # self.matQ = np.array([[self.Ti**3/3, self.Ti**2/2, 0, 0],
-        #                         [self.Ti**2/2, self.Ti, 0, 0],
-        #                         [0, 0, self.Ti**3/3, self.Ti**2/2],
-        #                         [0, 0, self.Ti**2/2, self.Ti**3/3]])
 
-        # matA or part of f by Eq(10)
         self.matA = np.array([[1, self.Ti, 0, 0],
                               [0, 1, 0, 0],
                               [0, 0, 1, self.Ti],
@@ -45,7 +34,7 @@ class ExtendedKF:
         self.matR = np.array([[R_x, 0],
                               [0, R_y]]).reshape(2, 2)
 
-        self.matC = [np.zeros((4,2))]
+        self.matC = [np.zeros((2,4))]
 
         # in piecewise constant model w is a scalar process noise and Q = sigma
         self.matGQGT = self.matG @ self.matQ @ self.matG.T
@@ -96,32 +85,6 @@ class ExtendedKF:
         # Ex: meas_noise(self, (1,3), Q)
         self.matR = np.random.normal(0, R, size)
 
-    def jacobA(self):
-        print("Read commented section!")
-        print("If we will have additional time after documenting, we will support comment explanation with code!")
-        # This was intended for Jacobian matrix of part. der. of f w.r.t. state x.
-        # ( Eq.1 groups w(k) with x_k and u(k), fortunately explicit version is found in Eq.10;
-        #  clarifying what is meant by f(x_k,u(k),w(k)) since it can mean anything!)
-        # Considering the equation x(k) = matA @ x(k-1) + █ * u(k) + █ * 0
-        # derivative wrt state x yields matrix A.
-        # Thus A[i,j] Jacobian is always A
-        # /// After manual computation, here is the matlab link as a help source which describes what is stated above
-        # /// https://mathworks.com/help/driving/ug/extended-kalman-filters.html
-        return
-
-    def jacobG(self):
-        print("Read commented section!")
-        print("If we will have have additional time after documenting, we will support comment explanation with code!")
-        # This was intended for Jacobian matrix of part. der. of f w.r.t. process noise w(k).
-        # ( Eq.1 groups w(k) with x_k and u(k), fortunately explicit version is found in Eq.10;
-        #  clarifying what is meant by f(x_k,u(k),w(k)) since it can mean anything!)
-        # Considering the equation x(k) = matA @ x(k-1) + █ * u(k) + █ * 0 (where 0 = w(k))
-        # As given in the pdf, w(k) is equal to zero, which is a constant. Derivative of constant also yields 0.
-        # Thus G[i,j] Jacobian is always 0.
-        # /// After manual computation, here is the matlab link as a help source which describes what is stated above
-        # /// https://mathworks.com/help/driving/ug/extended-kalman-filters.html
-        return
-
     def hardJacobC(self, x_in):
         # The partial derivative of function h is calculated on paper and provided in this function to only compute
         # given input data (aka hardcoded the Jacobian matrix). Depending on the time we have left, we may also add
@@ -132,20 +95,8 @@ class ExtendedKF:
         # jac_c = np.array([[x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0, x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0],
         #                           [-x_in[2]/(x_in[0]**2 + x_in[2]**2), 0, x_in[0]/(x_in[0]**2 + x_in[2]**2), 0]])
         jac_c = np.array([[float(x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0.],
-                          [float(-x_in[2]/(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[0]/(x_in[0]**2 + x_in[2]**2)), 0.]]).reshape(4,2).T
+                          [float(-x_in[2]/(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[0]/(x_in[0]**2 + x_in[2]**2)), 0.]])
         return jac_c
-
-    def jacobH(self):
-        print("Read commented section!")
-        print("If we will have have additional time after documenting, we will support comment explanation with code!")
-        # This was intended for Jacobian matrix of part. der. of h w.r.t. measurement noise v(k).
-        # Considering the equation z(k) = h(x_k) + v(k)
-        # ( Eq.2 groups v(k) with x_k unnecessarily; causing additional confusion and there is no other reference to
-        # function h unlike function f that is shown in Eq.1 and LATER EXPLAINED in Eq.10)
-        # Obvious derivation wrt v(k) will yield 1 and 1 is identity matrix in terms of matrices.
-        # /// After manual computation, here is the matlab link as a help source which describes what is stated above
-        # /// https://mathworks.com/help/driving/ug/extended-kalman-filters.html
-        return
 
     def gen_x_hat_minus(self, x_corr_k):
         # Eq (3)
@@ -162,14 +113,13 @@ class ExtendedKF:
 
     def corr_x_hat(self, X_pred_k, K_k, Z_k):
         # Eq(6)
-        self.x_hat.append(X_pred_k + K_k @ (Z_k - self.h_KF(X_pred_k)))
+        self.x_hat.append(X_pred_k + K_k @ (Z_k.reshape(2,1) - self.h_KF(X_pred_k)))
 
     def corr_p(self, K_k, P_pred_k, jacobC):
         # Eq(7)
         self.P_corr_list.append((np.identity(4) - K_k @ jacobC) @ P_pred_k)
 
     def KalmanFiltering(self):
-
         # In piecewise constant model w is a scalar process noise variable w(k) ~ N(0, Q) with zero mean.
         # Q in this case is the process noise variance.
         for i, meas in enumerate(self.z, start=1):
@@ -198,7 +148,7 @@ def nis(x_pred, z_in, p_list, C_in, H_in, R_in):
 
 
 def main():
-    gen_data = gen2D(10, 10, 1e-3, 1e-3)  # init real values, measured values etc.
+    gen_data = gen2D(1, 1, 1e-3, 1e-3)  # init real values, measured values etc.
     extKF_T = ExtendedKF(0.5, gen_data.z, gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2)  # T value for initialising
     extKF_T.get_x_hat_0(gen_data.z)
     extKF_T.KalmanFiltering()
@@ -209,15 +159,27 @@ def main():
     nis_out = []
     for i in range(len(gen_data.true_data)):
         nees_out.append(nees(gen_data.true_data[i],test[i].reshape(-1,4),extKF_T.P_pred_list[i+1]))
-
+    nees_out = np.asarray(nees_out)
     # for i in range(len(gen_data.true_data)):
     #     nis_out.append(nis(test[i],extKF_T.z[i],extKF_T.P_pred_list[i+1],extKF_T.matC[i+1],extKF_T.matH,extKF_T.matR))
 
-    f1 = plt.figure()
-    plt.plot(test[:, 0], test[:, 2], label='linear')
+    plt.subplot(221)
+    plt.plot(test[:, 0], test[:, 2])
     plt.xlabel('x-axis [m]')
     plt.ylabel('y-axis [m]')
-    f1.show()
+
+    plt.subplot(222)
+    plt.plot(gen_data.x[:, 0], gen_data.x[:, 2])
+    plt.xlabel('x-axis [m]')
+    plt.ylabel('y-axis [m]')
+    plt.show()
+
+    plt.plot()
+    plt.plot(nees_out, linestyle='None', marker='.')
+    plt.xlabel('Iteration')
+    plt.ylabel('NEES Values')
+
+    plt.show()
 
 
 main()
