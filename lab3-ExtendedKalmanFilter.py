@@ -78,7 +78,7 @@ class ExtendedKF:
         """
 
         r_xy = np.sqrt(x_k[0]**2 + x_k[2]**2)
-        theta_xy = np.arctan(x_k[2]/x_k[0]) / np.pi
+        theta_xy = np.arctan(x_k[2]/x_k[0])
         return np.array([r_xy, theta_xy]).reshape(2, 1)
 
     def meas_noise(self, size, R):
