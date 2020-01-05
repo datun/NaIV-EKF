@@ -54,8 +54,8 @@ class ExtendedKF:
 
         x = z0_x
         y = z0_y
-        v_x = z1_x - z0_x / self.Ti
-        v_y = z1_y - z1_y / self.Ti
+        v_x = (z1_x - z0_x) / self.Ti
+        v_y = (z1_y - z1_y) / self.Ti
         self.x_hat.append(np.array([x, v_x, y, v_y]).reshape((4, 1)))
 
     def get_P_0(self):
@@ -78,7 +78,7 @@ class ExtendedKF:
         """
 
         r_xy = np.sqrt(x_k[0]**2 + x_k[2]**2)
-        theta_xy = np.arctan(x_k[2]/x_k[0]) * 180 / np.pi
+        theta_xy = np.arctan(x_k[2]/x_k[0]) / np.pi
         return np.array([r_xy, theta_xy]).reshape(2, 1)
 
     def meas_noise(self, size, R):
