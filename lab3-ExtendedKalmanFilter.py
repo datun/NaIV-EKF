@@ -143,8 +143,8 @@ def nees(x_true, x_pred, p_list):
 
 def nis(x_pred, z_in, p_list, C_in, H_in, R_in):
     S_k = C_in @ p_list @ C_in.T + H_in @ R_in @ H_in.T
-    z1_k = z_in - C_in @ x_pred.T
-    return z1_k.T @ np.linalg.pinv(S_k) @ z1_k
+    z1_k = z_in.reshape(2,1) - (C_in @ x_pred)
+    return float(z1_k.T @ np.linalg.pinv(S_k) @ z1_k)
 
 
 def main():
@@ -153,32 +153,39 @@ def main():
     extKF_T.get_x_hat_0(gen_data.z)
     extKF_T.KalmanFiltering()
 
-    test = np.asarray(extKF_T.x_hat[1:])
+    test = np.asarray(extKF_T.x_hat[:-1])
 
     nees_out = []
     nis_out = []
     for i in range(len(gen_data.true_data)):
         nees_out.append(nees(gen_data.true_data[i],test[i].reshape(-1,4),extKF_T.P_pred_list[i+1]))
     nees_out = np.asarray(nees_out)
-    # for i in range(len(gen_data.true_data)):
-    #     nis_out.append(nis(test[i],extKF_T.z[i],extKF_T.P_pred_list[i+1],extKF_T.matC[i+1],extKF_T.matH,extKF_T.matR))
 
-    plt.subplot(221)
-    plt.plot(test[:, 0], test[:, 2])
-    plt.xlabel('x-axis [m]')
-    plt.ylabel('y-axis [m]')
+    for i in range(len(gen_data.true_data)):
+         nis_out.append(nis(test[i],extKF_T.z[i],extKF_T.P_pred_list[i+1],extKF_T.matC[i+1],extKF_T.matH,extKF_T.matR))
+    nis_out = np.asarray(nis_out)
 
-    plt.subplot(222)
-    plt.plot(gen_data.x[:, 0], gen_data.x[:, 2])
+
+    plt.plot()
+    plt.plot(test[:, 0], test[:, 2], label="Filter est.")
+    plt.plot(gen_data.x[:, 0], gen_data.x[:, 2], label="True pos.")
+    plt.title("Position Map")
+    plt.legend(loc='upper right')
     plt.xlabel('x-axis [m]')
     plt.ylabel('y-axis [m]')
     plt.show()
 
-    plt.plot()
-    plt.plot(nees_out, linestyle='None', marker='.')
+    plt.subplot(211)
+    plt.plot(nees_out, linestyle='-', marker='x')
     plt.xlabel('Iteration')
-    plt.ylabel('NEES Values')
+    plt.ylabel('NEES')
+    plt.title("NEES Values")
 
+    plt.subplot(212)
+    plt.plot(nis_out, linestyle='-', marker='x')
+    plt.xlabel('Iteration')
+    plt.ylabel('NIS')
+    plt.title("NIS Values")
     plt.show()
 
 
