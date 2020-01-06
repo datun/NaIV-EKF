@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 from scipy.stats.distributions import chi2
 from addon.generate_data_2D import gen_2D_data as gen2D
 
+#  //// Navigation and Intelligent Vehicles                 //////
+#  //// Extended Kalman Filter - Lab 3                      //////
+#  // Team: Deniz Alp Atun, Siddheswar Mukherjee            //////
+#  ///////////////////////////////////////////////////////////////
+
 
 class ExtendedKF:
     def __init__(self, T_in, z_in, Q_x, Q_y, R_x, R_y):
@@ -93,9 +98,6 @@ class ExtendedKF:
         # dynamic variant where it calculates wrt to the input vector.
         # x_in => x_minus_k
 
-        # Below is the pre-ugly fix of array problem:
-        # jac_c = np.array([[x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0, x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2), 0],
-        #                           [-x_in[2]/(x_in[0]**2 + x_in[2]**2), 0, x_in[0]/(x_in[0]**2 + x_in[2]**2), 0]])
         jac_c = np.array([[float(x_in[0]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[2]/np.sqrt(x_in[0]**2 + x_in[2]**2)), 0.],
                           [float(-x_in[2]/(x_in[0]**2 + x_in[2]**2)), 0., float(x_in[0]/(x_in[0]**2 + x_in[2]**2)), 0.]])
         return jac_c
@@ -150,40 +152,40 @@ def NEES(x, x_hat, P):
 
 def NIS(z, x_hat_minus, S, C):
     N = len(x_hat_minus)
-    z_tilde = np.zeros(N)
+    z_tilde = np.zeros((N, 2, 1))
     nis = np.zeros(N)
     for i in range(N):
-        z_tilde[i] = z[i] - np.matmul(C, x_hat_minus[i])
-        nis[i] = z_tilde[i] ** 2 / S[i]
-    #     if len(z_tilde.shape) == 1:
-    z_tilde = z_tilde.reshape(N, 1, 1)
-
+        z_tilde[i] = z[i] - np.matmul(C[i], x_hat_minus[i])
+        nis[i] = np.matmul(np.matmul(np.transpose(z_tilde[i]) , S[i]) , z_tilde[i])
     return nis
 
 
 def main():
-    gen_data = gen2D(1, 1, 1e-3, 1e-3)  # init real values, measured values etc.
+    gen_data = gen2D(1, 1, 1e-2, 1e-2)  # init real values, measured values etc.
+    index = 5  # For saving file purposes
     extKF_T = ExtendedKF(0.5, gen_data.z, gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2)  # T value for initialising
     extKF_T.get_x_hat_0(gen_data.z)
     extKF_T.KalmanFiltering()
 
     x_hat_c = np.delete(np.asarray(extKF_T.x_hat), (0), axis=0)
-    # print(np.asarray(extKF_T.matC).shape)
-    # print(np.asarray(extKF_T.mat).shape)
+    x_hat_minus_c = np.delete(np.asarray(extKF_T.x_hat_minus), (0), axis=0)
+    C_c = np.delete(np.asarray(extKF_T.matC), (0), axis=0)
 
     nees = NEES(gen_data.x.reshape(1507, 4, 1), x_hat_c, extKF_T.P_corr_list)
+    nis = NIS(gen_data.z.reshape(1507, 2, 1), x_hat_minus_c, np.asarray(extKF_T.s_k), C_c)
     max_nees = chi2.ppf(0.95, df=4)
-
+    max_nis = chi2.ppf(0.95, df=2)
 
     test = np.asarray(extKF_T.x_hat[:-1])
 
     plt.plot()
     plt.plot(test[:, 0], test[:, 2], label="Filter est.")
     plt.plot(gen_data.x[:, 0], gen_data.x[:, 2], label="True pos.")
-    plt.title("Position Map")
+    plt.title("Position Map for Q:[%0.3f %0.3f] R:[%0.3f %0.3f]" % (gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2))
     plt.legend(loc='upper right')
     plt.xlabel('x-axis [m]')
     plt.ylabel('y-axis [m]')
+    plt.savefig('%i Position.png' %(index), dpi=300)
     plt.show()
 
     plt.subplot(211)
@@ -191,14 +193,18 @@ def main():
     plt.axhline(max_nees, linestyle='--', color='r', label='5% tail point')
     plt.xlabel('Iteration')
     plt.ylabel('NEES')
-    plt.title("NEES Values")
+    plt.title("NEES Values for Q:[%0.3f %0.3f] R:[%0.3f %0.3f]" % (gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2))
+    plt.legend(loc='upper right')
 
-    # plt.subplot(212)
-    # plt.plot(nis_out, linestyle='-', marker='x')
-    # plt.axhline(max_nis, linestyle='--', color='r', label='5% tail point')
-    # plt.xlabel('Iteration')
-    # plt.ylabel('NIS')
-    # plt.title("NIS Values")
+    plt.subplot(212)
+    plt.plot(nis, linestyle='-', marker='x')
+    plt.axhline(max_nis, linestyle='--', color='r', label='5% tail point')
+    plt.xlabel('Iteration')
+    plt.ylabel('NIS')
+    plt.title("NIS Values for Q:[%0.3f %0.3f] R:[%0.3f %0.3f]" % (gen_data.Q1, gen_data.Q2, gen_data.R1, gen_data.R2))
+    plt.legend(loc='upper right')
+    plt.tight_layout()
+    plt.savefig('%i NEES-NIS.png' %(index), dpi=300)
     plt.show()
 
 
