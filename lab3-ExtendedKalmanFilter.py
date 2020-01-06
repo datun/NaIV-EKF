@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats.distributions import chi2
 from addon.generate_data_2D import gen_2D_data as gen2D
 
 
@@ -41,6 +42,7 @@ class ExtendedKF:
 
         # matrix G relates the process noise w to the state x
         self.matH = np.identity(2)
+        self.s_k = []
 
     def get_x_hat_0(self, z_in):
         z_0 = z_in[0]
@@ -109,6 +111,7 @@ class ExtendedKF:
     def gen_k_gain(self, P_pred_k, jacobC):
         # Eq(5)
         temp1 = np.linalg.pinv(jacobC @ P_pred_k @ jacobC.T + self.matR)
+        self.s_k.append(temp1)
         self.K_gain_list.append(P_pred_k @ jacobC.T @ temp1)
 
     def corr_x_hat(self, X_pred_k, K_k, Z_k):
@@ -136,15 +139,26 @@ class ExtendedKF:
             # print(self.P_corr_list)
 
 
-def nees(x_true, x_pred, p_list):
-    x_inter = x_true - x_pred
-    return float(x_inter @ np.linalg.pinv(p_list) @ x_inter.T)
+def NEES(x, x_hat, P):
+    N = len(x)
+    x_tilde = x - x_hat
+    nees = np.zeros(N)
+    for i in range(N):
+        nees[i] = np.matmul(np.matmul(np.transpose(x_tilde[i]), np.linalg.pinv(P[i])), x_tilde[i])
+    return nees
 
 
-def nis(x_pred, z_in, p_list, C_in, H_in, R_in):
-    S_k = C_in @ p_list @ C_in.T + H_in @ R_in @ H_in.T
-    z1_k = z_in.reshape(2,1) - (C_in @ x_pred)
-    return float(z1_k.T @ np.linalg.pinv(S_k) @ z1_k)
+def NIS(z, x_hat_minus, S, C):
+    N = len(x_hat_minus)
+    z_tilde = np.zeros(N)
+    nis = np.zeros(N)
+    for i in range(N):
+        z_tilde[i] = z[i] - np.matmul(C, x_hat_minus[i])
+        nis[i] = z_tilde[i] ** 2 / S[i]
+    #     if len(z_tilde.shape) == 1:
+    z_tilde = z_tilde.reshape(N, 1, 1)
+
+    return nis
 
 
 def main():
@@ -153,18 +167,15 @@ def main():
     extKF_T.get_x_hat_0(gen_data.z)
     extKF_T.KalmanFiltering()
 
+    x_hat_c = np.delete(np.asarray(extKF_T.x_hat), (0), axis=0)
+    # print(np.asarray(extKF_T.matC).shape)
+    # print(np.asarray(extKF_T.mat).shape)
+
+    nees = NEES(gen_data.x.reshape(1507, 4, 1), x_hat_c, extKF_T.P_corr_list)
+    max_nees = chi2.ppf(0.95, df=4)
+
+
     test = np.asarray(extKF_T.x_hat[:-1])
-
-    nees_out = []
-    nis_out = []
-    for i in range(len(gen_data.true_data)):
-        nees_out.append(nees(gen_data.true_data[i],test[i].reshape(-1,4),extKF_T.P_pred_list[i+1]))
-    nees_out = np.asarray(nees_out)
-
-    for i in range(len(gen_data.true_data)):
-         nis_out.append(nis(test[i],extKF_T.z[i],extKF_T.P_pred_list[i+1],extKF_T.matC[i+1],extKF_T.matH,extKF_T.matR))
-    nis_out = np.asarray(nis_out)
-
 
     plt.plot()
     plt.plot(test[:, 0], test[:, 2], label="Filter est.")
@@ -176,16 +187,18 @@ def main():
     plt.show()
 
     plt.subplot(211)
-    plt.plot(nees_out, linestyle='-', marker='x')
+    plt.plot(nees, linestyle='-', marker='x')
+    plt.axhline(max_nees, linestyle='--', color='r', label='5% tail point')
     plt.xlabel('Iteration')
     plt.ylabel('NEES')
     plt.title("NEES Values")
 
-    plt.subplot(212)
-    plt.plot(nis_out, linestyle='-', marker='x')
-    plt.xlabel('Iteration')
-    plt.ylabel('NIS')
-    plt.title("NIS Values")
+    # plt.subplot(212)
+    # plt.plot(nis_out, linestyle='-', marker='x')
+    # plt.axhline(max_nis, linestyle='--', color='r', label='5% tail point')
+    # plt.xlabel('Iteration')
+    # plt.ylabel('NIS')
+    # plt.title("NIS Values")
     plt.show()
 
 
